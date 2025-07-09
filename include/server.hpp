@@ -2,11 +2,13 @@
 #define SERVER_HPP
 
 class ProxyServer {
-public:
-    ProxyServer(int port);
-    void start();
-private:
-    int port_;
+    private:
+        int port_;
+    public:
+        ProxyServer(int port);
+
+        void start();
+
 };
 
 #endif // SERVER_HPP

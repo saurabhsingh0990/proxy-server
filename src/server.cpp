@@ -5,8 +5,8 @@
 
 #pragma comment(lib, "ws2_32.lib") // Link Winsock
 
-ProxyServer::ProxyServer(int port) : port_(port) {}
 
+ProxyServer :: ProxyServer(int port): port_(port){};
 void ProxyServer::start() {
     WSADATA wsaData;
     int result;
