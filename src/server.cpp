@@ -2,6 +2,8 @@
 #include <iostream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include "logger.hpp"
+
 
 #pragma comment(lib, "ws2_32.lib") // Link Winsock
 
@@ -63,9 +65,78 @@ void ProxyServer::start() {
         char buffer[4096];
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
         if (bytesReceived > 0) {
+            
+
             buffer[bytesReceived] = '\0'; // Null-terminate
-            std::cout << "Received request:\n" << buffer << std::endl;
-        } else {
+            std::string request(buffer);
+            
+            // Extract Host header
+            std::string hostHeader = "Host: ";
+            size_t pos = request.find(hostHeader);
+            if (pos != std::string::npos) {
+                size_t end = request.find("\r\n", pos);
+                std::string hostLine = request.substr(pos + hostHeader.length(), end - pos - hostHeader.length());
+                std::cout << "[+] Extracted Host: " << hostLine << "\n";
+
+                std::string method = request.substr(0, request.find(' '));  // "GET", "POST", etc.
+
+                // log the request
+                logRequest(method, hostLine, request);
+
+                // ==========================================
+                // 🔁 Step 1: Resolve host and connect to it
+                // ==========================================
+                addrinfo hints{}, *res;
+                hints.ai_family = AF_INET;
+                hints.ai_socktype = SOCK_STREAM;
+
+                int result = getaddrinfo(hostLine.c_str(), "80", &hints, &res);
+                if (result != 0) {
+                    std::cerr << "getaddrinfo failed: " << result << "\n";
+                    closesocket(clientSocket);
+                    return;
+                }
+
+                SOCKET targetSocket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+                if (targetSocket == INVALID_SOCKET) {
+                    std::cerr << "Failed to create target socket.\n";
+                    freeaddrinfo(res);
+                    closesocket(clientSocket);
+                    return;
+                }
+
+                if (connect(targetSocket, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR) {
+                    std::cerr << "Connection to target failed.\n";
+                    closesocket(targetSocket);
+                    freeaddrinfo(res);
+                    closesocket(clientSocket);
+                    return;
+                }
+
+                freeaddrinfo(res);
+
+                // ==========================================
+                // 🔁 Step 2: Forward client request to target
+                // ==========================================
+                send(targetSocket, request.c_str(), request.length(), 0);
+
+                // ==========================================
+                // 🔁 Step 3: Receive response from target
+                // ==========================================
+                char responseBuffer[8192];
+                int bytes;
+                while ((bytes = recv(targetSocket, responseBuffer, sizeof(responseBuffer), 0)) > 0) {
+                    send(clientSocket, responseBuffer, bytes, 0); // relay back to client
+                }
+
+                std::cout << "[✓] Response forwarded to client.\n";
+
+                closesocket(targetSocket); // Close target server connection
+            } else {
+                std::cerr << "[-] Host header not found.\n";
+            }
+        }
+        else {
             std::cerr << "Failed to receive data or client disconnected.\n";
         }
 
