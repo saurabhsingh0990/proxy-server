@@ -4,7 +4,7 @@
 #include <ctime>
 #include <iomanip>
 
-void logRequest(const std::string& method, const std::string& host, const std::string& fullRequest) {
+void logRequest(const std::string& method, const std::string& host, const std::string& fullRequest, const std::string& clientIP) {
     std::ofstream logFile("proxy.log", std::ios::app);  // append mode
 
     // Get current timestamp
@@ -18,5 +18,6 @@ void logRequest(const std::string& method, const std::string& host, const std::s
     logFile << "Timestamp: " << timeBuffer << "\n";
     logFile << "Method: " << method << "\n";
     logFile << "Host: " << host << "\n";
+    logFile << "Client IP: "<< clientIP<<"\n";
     logFile << "Full Request:\n" << fullRequest << "\n\n";
 }

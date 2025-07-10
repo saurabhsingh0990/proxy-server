@@ -53,11 +53,16 @@ void ProxyServer::start() {
 
     // Main loop
     while (true) {
-        SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
+        sockaddr_in clientAddr;
+        int clientLen = sizeof(clientAddr);
+        SOCKET clientSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientLen);
         if (clientSocket == INVALID_SOCKET) {
             std::cerr << "Accept failed.\n";
             continue;
         }
+        char* clientIP = inet_ntoa(clientAddr.sin_addr);
+
+
 
         std::cout << "New client connected!\n";
 
@@ -81,7 +86,7 @@ void ProxyServer::start() {
                 std::string method = request.substr(0, request.find(' '));  // "GET", "POST", etc.
 
                 // log the request
-                logRequest(method, hostLine, request);
+                logRequest(method, hostLine, request, clientIP);
 
                 // ==========================================
                 // 🔁 Step 1: Resolve host and connect to it
