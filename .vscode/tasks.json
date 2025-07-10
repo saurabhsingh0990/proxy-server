@@ -7,7 +7,7 @@
         "command": "powershell",
         "args": [
           "-Command",
-          "g++ src/main.cpp src/server.cpp src/logger.cpp -Iinclude -std=c++11 -o proxy -lws2_32; ./proxy"
+          "g++ src/main.cpp src/server.cpp src/logger.cpp src/caching.cpp -Iinclude -std=c++11 -o proxy -lws2_32; ./proxy"
         ],
         "problemMatcher": [],
         "group": {

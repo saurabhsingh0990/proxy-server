@@ -11,3 +11,87 @@ Accept: */*
 
 
 
+=============================
+Timestamp: 2025-07-10 23:24:12
+Method: GET
+Host: example.com
+Client IP: 127.0.0.1
+Full Request:
+GET http://example.com/ HTTP/1.1
+Host: example.com
+User-Agent: curl/8.9.1
+Accept: */*
+Proxy-Connection: Keep-Alive
+
+
+
+=============================
+Timestamp: 2025-07-10 23:24:31
+Method: GET
+Host: example.com
+Client IP: 127.0.0.1
+Full Request:
+GET http://example.com/ HTTP/1.1
+Host: example.com
+User-Agent: curl/8.9.1
+Accept: */*
+Proxy-Connection: Keep-Alive
+
+
+
+=============================
+Timestamp: 2025-07-10 23:25:00
+Method: GET
+Host: neverssl.com
+Client IP: 127.0.0.1
+Full Request:
+GET http://neverssl.com/ HTTP/1.1
+Host: neverssl.com
+User-Agent: curl/8.9.1
+Accept: */*
+Proxy-Connection: Keep-Alive
+
+
+
+=============================
+Timestamp: 2025-07-10 23:25:14
+Method: GET
+Host: neverssl.com
+Client IP: 127.0.0.1
+Full Request:
+GET http://neverssl.com/ HTTP/1.1
+Host: neverssl.com
+User-Agent: curl/8.9.1
+Accept: */*
+Proxy-Connection: Keep-Alive
+
+
+
+=============================
+Timestamp: 2025-07-10 23:25:42
+Method: GET
+Host: example.com
+Client IP: 127.0.0.1
+Full Request:
+GET http://example.com/ HTTP/1.1
+Host: example.com
+User-Agent: curl/8.9.1
+Accept: */*
+Proxy-Connection: Keep-Alive
+
+
+
+=============================
+Timestamp: 2025-07-10 23:25:54
+Method: GET
+Host: google.com
+Client IP: 127.0.0.1
+Full Request:
+GET http://google.com/ HTTP/1.1
+Host: google.com
+User-Agent: curl/8.9.1
+Accept: */*
+Proxy-Connection: Keep-Alive
+
+
+

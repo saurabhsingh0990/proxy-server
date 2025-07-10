@@ -3,12 +3,14 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "logger.hpp"
-
+#include "caching.hpp"
 
 #pragma comment(lib, "ws2_32.lib") // Link Winsock
 
+SimpleCache cache;
 
-ProxyServer :: ProxyServer(int port): port_(port){};
+ProxyServer::ProxyServer(int port) : port_(port) {}
+
 void ProxyServer::start() {
     WSADATA wsaData;
     int result;
@@ -20,7 +22,6 @@ void ProxyServer::start() {
         return;
     }
 
-    // Create socket
     SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket == INVALID_SOCKET) {
         std::cerr << "Socket creation failed.\n";
@@ -28,7 +29,6 @@ void ProxyServer::start() {
         return;
     }
 
-    // Bind address and port
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
@@ -41,7 +41,6 @@ void ProxyServer::start() {
         return;
     }
 
-    // Listen
     if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
         std::cerr << "Listen failed.\n";
         closesocket(serverSocket);
@@ -51,7 +50,6 @@ void ProxyServer::start() {
 
     std::cout << "Proxy Server listening on port " << port_ << "...\n";
 
-    // Main loop
     while (true) {
         sockaddr_in clientAddr;
         int clientLen = sizeof(clientAddr);
@@ -60,22 +58,16 @@ void ProxyServer::start() {
             std::cerr << "Accept failed.\n";
             continue;
         }
+
         char* clientIP = inet_ntoa(clientAddr.sin_addr);
-
-
-
         std::cout << "New client connected!\n";
 
-        // Receive HTTP request
         char buffer[4096];
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
         if (bytesReceived > 0) {
-            
-
-            buffer[bytesReceived] = '\0'; // Null-terminate
+            buffer[bytesReceived] = '\0';
             std::string request(buffer);
-            
-            // Extract Host header
+
             std::string hostHeader = "Host: ";
             size_t pos = request.find(hostHeader);
             if (pos != std::string::npos) {
@@ -83,14 +75,22 @@ void ProxyServer::start() {
                 std::string hostLine = request.substr(pos + hostHeader.length(), end - pos - hostHeader.length());
                 std::cout << "[+] Extracted Host: " << hostLine << "\n";
 
-                std::string method = request.substr(0, request.find(' '));  // "GET", "POST", etc.
+                std::string method = request.substr(0, request.find(' '));
+                std::string urlLine = request.substr(request.find(' ') + 1);
+                std::string url = urlLine.substr(0, urlLine.find(' '));
+                std::string cacheKey = hostLine + url;
 
-                // log the request
                 logRequest(method, hostLine, request, clientIP);
 
-                // ==========================================
-                // 🔁 Step 1: Resolve host and connect to it
-                // ==========================================
+                // Check cache before making remote connection
+                if (cache.contains(cacheKey)) {
+                    std::string cachedResponse = cache.get(cacheKey);
+                    send(clientSocket, cachedResponse.c_str(), cachedResponse.size(), 0);
+                    std::cout << "[Cache HIT] Served from cache: " << cacheKey << "\n";
+                    closesocket(clientSocket);
+                    continue;
+                }
+
                 addrinfo hints{}, *res;
                 hints.ai_family = AF_INET;
                 hints.ai_socktype = SOCK_STREAM;
@@ -99,7 +99,7 @@ void ProxyServer::start() {
                 if (result != 0) {
                     std::cerr << "getaddrinfo failed: " << result << "\n";
                     closesocket(clientSocket);
-                    return;
+                    continue;
                 }
 
                 SOCKET targetSocket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -107,7 +107,7 @@ void ProxyServer::start() {
                     std::cerr << "Failed to create target socket.\n";
                     freeaddrinfo(res);
                     closesocket(clientSocket);
-                    return;
+                    continue;
                 }
 
                 if (connect(targetSocket, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR) {
@@ -115,41 +115,39 @@ void ProxyServer::start() {
                     closesocket(targetSocket);
                     freeaddrinfo(res);
                     closesocket(clientSocket);
-                    return;
+                    continue;
                 }
 
                 freeaddrinfo(res);
 
-                // ==========================================
-                // 🔁 Step 2: Forward client request to target
-                // ==========================================
+                // Forward request to remote server
                 send(targetSocket, request.c_str(), request.length(), 0);
 
-                // ==========================================
-                // 🔁 Step 3: Receive response from target
-                // ==========================================
+                // Read response and cache it
                 char responseBuffer[8192];
                 int bytes;
+                std::string responseData;
+
                 while ((bytes = recv(targetSocket, responseBuffer, sizeof(responseBuffer), 0)) > 0) {
-                    send(clientSocket, responseBuffer, bytes, 0); // relay back to client
+                    responseData.append(responseBuffer, bytes);          // for cache
+                    send(clientSocket, responseBuffer, bytes, 0);        // to client
                 }
 
+                cache.put(cacheKey, responseData);
+                std::cout << "[Cache STORE] Cached response for: " << cacheKey << "\n";
                 std::cout << "[✓] Response forwarded to client.\n";
 
-                closesocket(targetSocket); // Close target server connection
+                closesocket(targetSocket);
             } else {
                 std::cerr << "[-] Host header not found.\n";
             }
-        }
-        else {
+        } else {
             std::cerr << "Failed to receive data or client disconnected.\n";
         }
 
-        // Close client socket
         closesocket(clientSocket);
     }
 
-    // Cleanup
     closesocket(serverSocket);
     WSACleanup();
 }
