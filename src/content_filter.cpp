@@ -10,7 +10,7 @@
 
 ContentFilter::ContentFilter() {
     // Optional: default load
-    loadFromFile("config/blocked.txt");  // relative path from project root
+    loadFromFile("utils/blocked.txt");  // relative path from project root
 }
 
 void ContentFilter::addBlockedWord(const std::string& word) {

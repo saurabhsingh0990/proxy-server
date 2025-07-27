@@ -3,3 +3,4 @@ drugs
 violence
 gambling
 nsfw
+illustrative
