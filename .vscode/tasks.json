@@ -1,23 +1,26 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-      {
-        "label": "Build and Run Proxy (MinGW + PowerShell)",
-        "type": "shell",
-        "command": "powershell",
-        "args": [
-          "-Command",
-          "g++ src/main.cpp src/server.cpp src/logger.cpp src/caching.cpp -Iinclude -std=c++11 -o proxy -lws2_32; ./proxy"
-        ],
-        "problemMatcher": [],
-        "group": {
-          "kind": "build",
-          "isDefault": true
-        },
-        "options": {
-          "cwd": "${workspaceFolder}"
-        }
-      }
-    ]
-  }
-  
+  "version": "2.0.0",
+  "tasks": [
+    {
+  "label": "Build and Run Proxy",
+  "type": "shell",
+  "command": "powershell",
+  "args": [
+    "-Command",
+    "g++ src/main.cpp src/server.cpp src/logger.cpp src/caching.cpp -Iinclude -std=c++11 -o proxy -lws2_32; ./proxy"
+  ],
+  "options": {
+    "shell": {
+      "executable": "powershell.exe"
+    }
+  },
+  "group": {
+    "kind": "build",
+    "isDefault": true
+  },
+  "problemMatcher": [],
+  "detail": "Builds and runs the proxy server"
+}
+
+  ]
+}
