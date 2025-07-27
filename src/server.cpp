@@ -1,13 +1,16 @@
 #include "server.hpp"
+#include "logger.hpp"
+#include "caching.hpp"
+#include "content_filter.hpp"
+
 #include <iostream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include "logger.hpp"
-#include "caching.hpp"
 
 #pragma comment(lib, "ws2_32.lib") // Link Winsock
 
 SimpleCache cache;
+ContentFilter filter;
 
 ProxyServer::ProxyServer(int port) : port_(port) {}
 
@@ -22,6 +25,7 @@ void ProxyServer::start() {
         return;
     }
 
+    // Create socket
     SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket == INVALID_SOCKET) {
         std::cerr << "Socket creation failed.\n";
@@ -29,6 +33,7 @@ void ProxyServer::start() {
         return;
     }
 
+    // Bind address and port
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
@@ -62,12 +67,14 @@ void ProxyServer::start() {
         char* clientIP = inet_ntoa(clientAddr.sin_addr);
         std::cout << "New client connected!\n";
 
+        // Receive HTTP request
         char buffer[4096];
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
         if (bytesReceived > 0) {
             buffer[bytesReceived] = '\0';
             std::string request(buffer);
 
+            // Extract Host header
             std::string hostHeader = "Host: ";
             size_t pos = request.find(hostHeader);
             if (pos != std::string::npos) {
@@ -82,15 +89,15 @@ void ProxyServer::start() {
 
                 logRequest(method, hostLine, request, clientIP);
 
-                // Check cache before making remote connection
+                // Step 1: Check Cache
                 if (cache.contains(cacheKey)) {
                     std::string cachedResponse = cache.get(cacheKey);
-                    send(clientSocket, cachedResponse.c_str(), cachedResponse.size(), 0);
-                    std::cout << "[Cache HIT] Served from cache: " << cacheKey << "\n";
+                    send(clientSocket, cachedResponse.c_str(), cachedResponse.length(), 0);
                     closesocket(clientSocket);
                     continue;
                 }
 
+                // Step 2: Resolve Host
                 addrinfo hints{}, *res;
                 hints.ai_family = AF_INET;
                 hints.ai_socktype = SOCK_STREAM;
@@ -120,24 +127,35 @@ void ProxyServer::start() {
 
                 freeaddrinfo(res);
 
-                // Forward request to remote server
+                // Step 3: Forward request to target
                 send(targetSocket, request.c_str(), request.length(), 0);
 
-                // Read response and cache it
+                // Step 4: Receive and filter response
                 char responseBuffer[8192];
-                int bytes;
                 std::string responseData;
 
+                int bytes;
                 while ((bytes = recv(targetSocket, responseBuffer, sizeof(responseBuffer), 0)) > 0) {
-                    responseData.append(responseBuffer, bytes);          // for cache
-                    send(clientSocket, responseBuffer, bytes, 0);        // to client
+                    responseData.append(responseBuffer, bytes);
                 }
 
-                cache.put(cacheKey, responseData);
-                std::cout << "[Cache STORE] Cached response for: " << cacheKey << "\n";
-                std::cout << "[✓] Response forwarded to client.\n";
-
                 closesocket(targetSocket);
+
+                // Filter the content
+                if (filter.isBlocked(responseData)) {
+                    std::string blockMessage =
+                        "HTTP/1.1 403 Forbidden\r\n"
+                        "Content-Type: text/html\r\n\r\n"
+                        "<html><body><h1>403 Forbidden</h1><p>Content blocked by proxy filter.</p></body></html>";
+                    send(clientSocket, blockMessage.c_str(), blockMessage.size(), 0);
+                    std::cout << "[FILTER] Blocked content for: " << cacheKey << "\n";
+                } else {
+                    send(clientSocket, responseData.c_str(), responseData.size(), 0);
+                    cache.put(cacheKey, responseData);
+                    std::cout << "[Cache STORE] Cached response for: " << cacheKey << "\n";
+                    std::cout << "[✓] Response forwarded to client.\n";
+                }
+
             } else {
                 std::cerr << "[-] Host header not found.\n";
             }
